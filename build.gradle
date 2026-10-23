@@ -1,0 +1,9 @@
+plugins { id 'java' apply false }
+subprojects {
+    apply plugin: 'java'
+    group = 'org.thelastwilds'
+    version = '0.1.0-SNAPSHOT'
+    repositories { mavenCentral() }
+    java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+}
