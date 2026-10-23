@@ -31,6 +31,13 @@ jobs:
           include-templates: true
       - name: Import project
         run: godot --headless --path godot --editor --import --quit
+      - name: Smoke test project startup
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          output=$(timeout 12s godot --headless --path godot --quit-after 30 2>&1)
+          printf "%s\\n" "$output"
+          if echo "$output" | grep -E "SCRIPT ERROR|Parse Error|Failed to load script|Invalid call"; then exit 1; fi
       - name: Export desktop build
         shell: bash
         run: |
