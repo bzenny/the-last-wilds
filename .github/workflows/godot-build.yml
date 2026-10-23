@@ -1,0 +1,43 @@
+name: Godot desktop builds
+on:
+  push:
+    branches: [feature/godot-first-play]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            preset: Linux
+            artifact: wilds-linux
+          - os: windows-latest
+            preset: Windows Desktop
+            artifact: wilds-windows
+          - os: macos-latest
+            preset: macOS
+            artifact: wilds-macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: true
+      - name: Import project
+        run: godot --headless --path godot --editor --import --quit
+      - name: Export desktop build
+        shell: bash
+        run: |
+          mkdir -p dist
+          godot --headless --path godot --export-release "${{ matrix.preset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*
+          if-no-files-found: error
