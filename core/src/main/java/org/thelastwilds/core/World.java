@@ -34,6 +34,12 @@ public final class World {
         biomass[y][x] = Math.max(0, biomass[y][x] - amount);
     }
 
+    public void restore(int x, int y, int amount) {
+        check(x, y);
+        if (amount < 0) throw new IllegalArgumentException("amount must be nonnegative");
+        biomass[y][x] = Math.min(100, biomass[y][x] + amount);
+    }
+
     public int biomass(int x, int y) { check(x, y); return biomass[y][x]; }
     public int width() { return width; }
     public int height() { return height; }
