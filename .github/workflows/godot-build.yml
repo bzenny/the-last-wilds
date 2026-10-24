@@ -1,0 +1,50 @@
+name: Godot desktop builds
+on:
+  push:
+    branches: [feature/godot-first-play]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            preset: Linux
+            artifact: wilds-linux
+          - os: windows-latest
+            preset: Windows Desktop
+            artifact: wilds-windows
+          - os: macos-latest
+            preset: macOS
+            artifact: wilds-macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: true
+      - name: Import project
+        run: godot --headless --path godot --editor --import --quit
+      - name: Smoke test project startup
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          output=$(timeout 12s godot --headless --path godot --quit-after 30 2>&1)
+          printf "%s\\n" "$output"
+          if echo "$output" | grep -E "SCRIPT ERROR|Parse Error|Failed to load script|Invalid call"; then exit 1; fi
+      - name: Export desktop build
+        shell: bash
+        run: |
+          mkdir -p dist
+          godot --headless --path godot --export-release "${{ matrix.preset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*
+          if-no-files-found: error
