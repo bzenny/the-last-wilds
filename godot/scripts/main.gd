@@ -17,6 +17,11 @@ var victory := false
 var defeated := 0
 const SANCTUARY_X := 5
 const DAMAGE_PER_RAIDER := 15.0
+const ATTACK_RANGE := 4
+const ATTACK_COST := 5.0
+const REGEN_COST := 15.0
+const MAX_BREACHES := 3
+var breaches := 0
 
 func _ready() -> void:
 	queue_redraw()
@@ -29,6 +34,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				status = "Paused" if paused else "Defend the sanctuary"
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_3:
 			selected = event.keycode - KEY_1
+		elif event.keycode == KEY_Q and not paused and not game_over:
+			attack_nearest()
+		elif event.keycode == KEY_E and not paused and not game_over:
+			if wild_energy >= REGEN_COST:
+				wild_energy -= REGEN_COST
+				habitat = minf(100.0, habitat + 10.0)
+				status = "Sanctuary restored +10 habitat."
+			else:
+				status = "Need 15 Wild Energy to restore habitat."
 		elif event.keycode == KEY_R:
 			get_tree().reload_current_scene()
 		queue_redraw()
@@ -56,22 +70,46 @@ func _process(delta: float) -> void:
 			enemies[i].x -= 1
 			if enemies[i].x <= SANCTUARY_X:
 				habitat = maxf(0.0, habitat - DAMAGE_PER_RAIDER)
+				breaches += 1
 				enemies.remove_at(i)
 				status = "A raider breached the sanctuary! -15 habitat."
-		if habitat <= 0:
+		if habitat <= 0 or breaches >= MAX_BREACHES:
 			game_over = true
 			status = "SANCTUARY LOST. Press R to replay."
 		elif enemies.is_empty():
 			game_over = true
 			victory = habitat > 0
-			status = "RAID SURVIVED! Sanctuary at %d. Press R to replay." % int(habitat)
+			status = "RAID SURVIVED! Sanctuary at %d. Raiders defeated: %d. Press R." % [int(habitat), defeated]
 		wild_energy += 1.0
 		queue_redraw()
 
+func attack_nearest() -> void:
+	if wild_energy < ATTACK_COST:
+		status = "Need 5 Wild Energy to attack."
+		return
+	var target := -1
+	var nearest := ATTACK_RANGE + 1
+	for i in enemies.size():
+		var distance := absi(guardians[selected].x - enemies[i].x) + absi(guardians[selected].y - enemies[i].y)
+		if distance <= ATTACK_RANGE and distance < nearest:
+			nearest = distance
+			target = i
+	if target == -1:
+		status = "No raider within 4 tiles. Move closer and press Q."
+		return
+	wild_energy -= ATTACK_COST
+	enemies.remove_at(target)
+	defeated += 1
+	status = "Guardian stopped a raider! Defeated: %d" % defeated
+	if enemies.is_empty():
+		game_over = true
+		victory = true
+		status = "VICTORY! All raiders stopped. Press R to replay."
+
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(32, 28), "THE LAST WILDS  |  Sanctuary: %d  |  Wild Energy: %d  |  Raiders: %d" % [int(habitat), int(wild_energy), enemies.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
-	draw_string(font, Vector2(32, 49), status + "  |  Space: pause  1-3: select  R: restart", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
+	draw_string(font, Vector2(32, 28), "THE LAST WILDS | Habitat: %d | Energy: %d | Raiders: %d | Breaches: %d/%d" % [int(habitat), int(wild_energy), enemies.size(), breaches, MAX_BREACHES], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+	draw_string(font, Vector2(32, 49), status + " | Q: attack  E: heal  Space: pause  1-3: select  R: restart", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 	for y in H:
 		for x in W:
 			var color := Color("#264c32") if (x + y) % 2 == 0 else Color("#31583a")
