@@ -12,6 +12,11 @@ var habitat := 100.0
 var wild_energy := 30.0
 var enemies := [Vector2i(29, 8), Vector2i(29, 12), Vector2i(29, 16)]
 var status := "Defend the sanctuary. Click a guardian, right-click to move."
+var game_over := false
+var victory := false
+var defeated := 0
+const SANCTUARY_X := 5
+const DAMAGE_PER_RAIDER := 15.0
 
 func _ready() -> void:
 	queue_redraw()
@@ -19,8 +24,9 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_SPACE:
-			paused = not paused
-			status = "Paused" if paused else "Defend the sanctuary"
+			if not game_over:
+				paused = not paused
+				status = "Paused" if paused else "Defend the sanctuary"
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_3:
 			selected = event.keycode - KEY_1
 		elif event.keycode == KEY_R:
@@ -35,29 +41,36 @@ func _unhandled_input(event: InputEvent) -> void:
 				if guardians[i] == cell:
 					selected = i
 					break
-		elif event.button_index == MOUSE_BUTTON_RIGHT and not paused:
+		elif event.button_index == MOUSE_BUTTON_RIGHT and not paused and not game_over:
 			guardians[selected] = cell
 			status = "Guardian moved to (%d, %d)" % [cell.x, cell.y]
 		queue_redraw()
 
 func _process(delta: float) -> void:
-	if paused or habitat <= 0:
+	if paused or game_over:
 		return
 	elapsed += delta
-	if elapsed >= 1.0:
+	while elapsed >= 1.0 and not game_over:
 		elapsed -= 1.0
-		for i in enemies.size():
-			enemies[i].x = max(0, enemies[i].x - 1)
-			if enemies[i].x <= 5:
-				habitat = maxf(0.0, habitat - 5.0)
-				wild_energy += 1.0
+		for i in range(enemies.size() - 1, -1, -1):
+			enemies[i].x -= 1
+			if enemies[i].x <= SANCTUARY_X:
+				habitat = maxf(0.0, habitat - DAMAGE_PER_RAIDER)
+				enemies.remove_at(i)
+				status = "A raider breached the sanctuary! -15 habitat."
 		if habitat <= 0:
-			status = "Sanctuary lost. Press R to replay."
+			game_over = true
+			status = "SANCTUARY LOST. Press R to replay."
+		elif enemies.is_empty():
+			game_over = true
+			victory = habitat > 0
+			status = "RAID SURVIVED! Sanctuary at %d. Press R to replay." % int(habitat)
+		wild_energy += 1.0
 		queue_redraw()
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(32, 28), "THE LAST WILDS  |  Sanctuary: %d  |  Wild Energy: %d" % [int(habitat), int(wild_energy)], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+	draw_string(font, Vector2(32, 28), "THE LAST WILDS  |  Sanctuary: %d  |  Wild Energy: %d  |  Raiders: %d" % [int(habitat), int(wild_energy), enemies.size()], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
 	draw_string(font, Vector2(32, 49), status + "  |  Space: pause  1-3: select  R: restart", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color.WHITE)
 	for y in H:
 		for x in W:
